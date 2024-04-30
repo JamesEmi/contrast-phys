@@ -1,3 +1,4 @@
+import os
 import cv2
 import numpy as np
 import h5py
@@ -25,7 +26,7 @@ def openface_h5(video_path, landmark_path, h5_path, store_size=128):
         
         for frame_num in range(total_num_frame):
 
-            if landmark[' success'][frame_num]:
+            if landmark['success'][frame_num]:
 
                 lm_x = []
                 lm_y = []
@@ -107,3 +108,27 @@ def openface_h5(video_path, landmark_path, h5_path, store_size=128):
                 imgs[frame_num] = cv2.resize(face, (store_size,store_size))
 
         cap.release()
+
+def organize_data(main_directory):
+    """
+    Organize video and landmark data into HDF5 files.
+    Each HDF5 file is named according to the directory it was processed from.
+    """
+    for subdir in os.listdir(main_directory):
+        subdir_path = os.path.join(main_directory, subdir)
+        if os.path.isdir(subdir_path):
+            video_path = os.path.join(subdir_path, 'vid.avi')  # Adjust video file name as needed
+            landmark_path = os.path.join(subdir_path, 'ground_truth.txt')  # Adjust gt file name as needed
+            # Strip 'subject' part from subdir name and convert to integer
+            subject_number = int(subdir.lstrip('subject'))
+            h5_directory = '/data-fast/james/triage/datasets/UBFC-rPPG-cphys-preprocessed'
+            h5_path = os.path.join(h5_directory, f"{subject_number}.h5")
+            # h5_path = os.path.join(main_directory, f"{subject_number}.h5")
+            openface_h5(video_path, landmark_path, h5_path)
+
+def main():
+    main_directory = '/data-fast/james/triage/datasets/UBFC-rPPG'
+    organize_data(main_directory)
+
+if __name__ == "__main__":
+    main()
