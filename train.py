@@ -14,8 +14,10 @@ from torch import optim
 from torch.utils.data import DataLoader
 from sacred import Experiment
 from sacred.observers import FileStorageObserver
+from tqdm import tqdm
+import matplotlib.pyplot as plt
 
-ex = Experiment('model_train', save_git_info=False)
+ex = Experiment('model_train_trial', save_git_info=False)
 
 
 if torch.cuda.is_available():
@@ -46,6 +48,7 @@ def my_config():
     result_dir = './results' # store checkpoints and training recording
     ex.observers.append(FileStorageObserver(result_dir))
 
+
 @ex.automain
 def my_main(_run, total_epoch, T, S, lr, result_dir, fs, delta_t, K, in_ch):
 
@@ -57,10 +60,13 @@ def my_main(_run, total_epoch, T, S, lr, result_dir, fs, delta_t, K, in_ch):
     np.save(exp_dir+'/test_list.npy', test_list)
 
     # define the dataloader
-    dataset = H5Dataset(train_list, T) # please read the code about H5Dataset when preparing your dataset
-    dataloader = DataLoader(dataset, batch_size=2, # two videos for contrastive learning
+    train_dataset = H5Dataset(train_list, T) # please read the code about H5Dataset when preparing your dataset
+    train_dataloader = DataLoader(train_dataset, batch_size=2, # two videos for contrastive learning
                             shuffle=True, num_workers=4, pin_memory=True, drop_last=True) # TODO: If you run the code on Windows, please remove num_workers=4.
     
+    val_dataset = H5Dataset(test_list, T)  # Assuming validation dataset setup similarly
+    val_dataloader = DataLoader(val_dataset, batch_size=2, shuffle=False, num_workers=4, pin_memory=True, drop_last=True)
+
     # define the model and loss
     model = PhysNet(S, in_ch=in_ch).to(device).train()
     loss_func = ContrastLoss(delta_t, K, fs, high_pass=40, low_pass=250)
@@ -70,10 +76,15 @@ def my_main(_run, total_epoch, T, S, lr, result_dir, fs, delta_t, K, in_ch):
 
     # define the optimizer
     opt = optim.AdamW(model.parameters(), lr=lr)
-
+    
+    train_losses = []
+    val_losses = []
+    
+    model.train()
     for e in range(total_epoch):
-        for it in range(np.round(60/(T/fs)).astype('int')): # TODO: 60 means the video length of each video is 60s. If each video's length in your dataset is other value (e.g, 30s), you should use that value.
-            for imgs in dataloader: # dataloader randomly samples a video clip with length T
+        with tqdm(total=int(np.round(60/(T/fs)).astype('int')), desc=f"Epoch {e+1}/{total_epoch}", unit='batch') as pbar:
+            # for it in range(np.round(60/(T/fs)).astype('int')): # TODO: 60 means the video length of each video is 60s. If each video's length in your dataset is other value (e.g, 30s), you should use that value.
+            for imgs in train_dataloader: # dataloader randomly samples a video clip with length T
                 imgs = imgs.to(device)
 
                 # model forward propagation
@@ -83,6 +94,7 @@ def my_main(_run, total_epoch, T, S, lr, result_dir, fs, delta_t, K, in_ch):
                 # define the loss functions
                 loss, p_loss, n_loss = loss_func(model_output)
 
+                train_losses.append(loss.item())
                 # optimize
                 opt.zero_grad()
                 loss.backward()
@@ -97,5 +109,26 @@ def my_main(_run, total_epoch, T, S, lr, result_dir, fs, delta_t, K, in_ch):
                 ex.log_scalar("n_loss", n_loss.item())
                 ex.log_scalar("ipr", ipr.item())
 
-        # save model checkpoints
-        torch.save(model.state_dict(), exp_dir+'/epoch%d.pt'%e)
+                pbar.update()  # Update the progress bar per iteration
+        
+        model.eval()
+        with torch.no_grad():
+            for imgs in val_dataloader:
+                imgs = imgs.to(device)
+                model_output = model(imgs)
+                val_loss, _, _ = loss_func(model_output)
+                val_losses.append(val_loss.item())
+
+        torch.save(model.state_dict(), exp_dir + '/epoch%d.pt' % e)
+        print(f'Epoch {e+1}: Train loss - {loss.item():.4f}; Val loss - {val_loss:.4f}')
+
+    
+    # Plotting losses after training
+    plt.figure(figsize=(10, 5))
+    plt.plot(train_losses, label='Training Loss')
+    plt.plot(val_losses, label='Validation Loss')
+    plt.title('Training and Validation Losses')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.show()
