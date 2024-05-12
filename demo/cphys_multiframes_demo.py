@@ -86,5 +86,6 @@ def inference_pipeline(directory_path, window_size=300, step_size=120, num_windo
     plt.savefig(f'./results/01_AI2C_results_{timestamp}.png')
     plt.show()
 
-directory_path = '/james/experiment_data/20240508_church-processed/01/images_first540'
+directory_path = '/james/experiment_data/20240508_church-processed/01/images_last540'
+# directory_path = '/james/experiment_data/20240508_church-processed/01/images_first540'
 inference_pipeline(directory_path)
