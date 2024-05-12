@@ -8,6 +8,7 @@ import os
 from PIL import Image
 from facenet_pytorch import MTCNN
 import torch
+from datetime import datetime
 
 def load_and_preprocess_frames(directory):
     # List all files in the directory and sort them
@@ -37,7 +38,7 @@ def face_detection(frames):
     face_list = np.array(face_list)[np.newaxis]
     return face_list
 
-directory_path = '/james/experiment_data/20240508_church-processed/01/images'
+directory_path = '/james/experiment_data/20240508_church-processed/03/first_150'
 fps = 30  # Define FPS as needed based on your frame rate
 
 frames = load_and_preprocess_frames(directory_path)
@@ -69,6 +70,7 @@ ax2.set_xlim([40,200])
 ax2.grid('on')
 ax2.set_title('PSD')
 
-plt.savefig('./results.png')
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+plt.savefig(f'./results/01_150f_results_{timestamp}.png')
 
 print('heart rate: %.2f bpm'%hr)
