@@ -10,7 +10,7 @@ from PIL import Image
 from facenet_pytorch import MTCNN
 from datetime import datetime
 from tqdm import tqdm
-# from torch.cuda.amp import autocast
+from torch.cuda.amp import autocast
 
 def load_and_preprocess_frames(directory, start_frame, num_frames):
     start_time = datetime.now()
@@ -66,13 +66,14 @@ def inference_pipeline(directory_path, window_size=300, step_size=120, num_windo
         face_list = face_detection(frames)
 
         with torch.no_grad():
-            face_list = torch.tensor(face_list.astype('float16')).to(device)
-            # face_tensor = torch.tensor(face_list, dtype=torch.float16).to(device)  # Ensure data is in half-precision
-            # face_tensor = torch.from_numpy(face_list).float().to(device).half()  # Ensure data is on GPU and in half-precision
-            # rppg = model(face_tensor)[:,-1, :]
-            rppg = model(face_list)[:,-1, :]
-            rppg = rppg[0].detach().cpu().numpy()
-            rppg = butter_bandpass(rppg, lowcut=0.6, highcut=4, fs=30)
+            with autocast():
+                face_list = torch.tensor(face_list.astype('float16')).to(device)
+                # face_tensor = torch.tensor(face_list, dtype=torch.float16).to(device)  # Ensure data is in half-precision
+                # face_tensor = torch.from_numpy(face_list).float().to(device).half()  # Ensure data is on GPU and in half-precision
+                # rppg = model(face_tensor)[:,-1, :]
+                rppg = model(face_list)[:,-1, :]
+                rppg = rppg[0].detach().cpu().numpy()
+                rppg = butter_bandpass(rppg, lowcut=0.6, highcut=4, fs=30)
 
             hr, psd_y, psd_x = hr_fft(rppg, fs=30)
             
