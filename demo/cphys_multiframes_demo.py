@@ -10,6 +10,7 @@ from PIL import Image
 from facenet_pytorch import MTCNN
 from datetime import datetime
 from tqdm import tqdm
+# from torch.cuda.amp import autocast
 
 def load_and_preprocess_frames(directory, start_frame, num_frames):
     start_time = datetime.now()
@@ -48,6 +49,8 @@ def inference_pipeline(directory_path, window_size=300, step_size=120, num_windo
     print(f'Device being used for inference is {device}')
     model = PhysNet(S=2).to(device).eval()
     model.load_state_dict(torch.load('/james/contrastphys_node_code/model1/src/contrastphys/contrastphys/contrast-phys-demo/model_weights.pt', map_location=device))
+    model.half()  # Convert model to half-precision
+
 
     all_rppg = []
     all_psd_y = []
