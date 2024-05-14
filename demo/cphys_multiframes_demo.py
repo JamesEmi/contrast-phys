@@ -50,6 +50,7 @@ def inference_pipeline(directory_path, window_size=300, step_size=120, num_windo
     model = PhysNet(S=2).to(device).eval()
     model.load_state_dict(torch.load('/james/contrastphys_node_code/model1/src/contrastphys/contrastphys/contrast-phys-demo/model_weights.pt', map_location=device))
     model.half()  # Convert model to half-precision
+    print('Using half precision!!!')
 
 
     all_rppg = []
@@ -65,7 +66,10 @@ def inference_pipeline(directory_path, window_size=300, step_size=120, num_windo
         face_list = face_detection(frames)
 
         with torch.no_grad():
-            face_list = torch.tensor(face_list.astype('float32')).to(device)
+            face_list = torch.tensor(face_list.astype('float16')).to(device)
+            # face_tensor = torch.tensor(face_list, dtype=torch.float16).to(device)  # Ensure data is in half-precision
+            # face_tensor = torch.from_numpy(face_list).float().to(device).half()  # Ensure data is on GPU and in half-precision
+            # rppg = model(face_tensor)[:,-1, :]
             rppg = model(face_list)[:,-1, :]
             rppg = rppg[0].detach().cpu().numpy()
             rppg = butter_bandpass(rppg, lowcut=0.6, highcut=4, fs=30)
