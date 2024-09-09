@@ -31,8 +31,8 @@ def openface_h5(video_path, landmark_path, h5_path, store_size=128):
                 lm_x = []
                 lm_y = []
                 for lm_num in range(68):
-                    lm_x.append(landmark[' x_%d'%lm_num][frame_num])
-                    lm_y.append(landmark[' y_%d'%lm_num][frame_num])
+                    lm_x.append(landmark['x_%d'%lm_num][frame_num])
+                    lm_y.append(landmark['y_%d'%lm_num][frame_num])
 
                 lm_x = np.array(lm_x)
                 lm_y = np.array(lm_y)
@@ -63,13 +63,13 @@ def openface_h5(video_path, landmark_path, h5_path, store_size=128):
 
         for frame_num in range(total_num_frame):
 
-            if landmark[' success'][frame_num]:
+            if landmark['success'][frame_num]:
 
                 lm_x_ = []
                 lm_y_ = []
                 for lm_num in range(68):
-                    lm_x_.append(landmark[' x_%d'%lm_num][frame_num])
-                    lm_y_.append(landmark[' y_%d'%lm_num][frame_num])
+                    lm_x_.append(landmark['x_%d'%lm_num][frame_num])
+                    lm_y_.append(landmark['y_%d'%lm_num][frame_num])
 
                 lm_x_ = np.array(lm_x_)
                 lm_y_ = np.array(lm_y_)
@@ -109,26 +109,33 @@ def openface_h5(video_path, landmark_path, h5_path, store_size=128):
 
         cap.release()
 
-def organize_data(main_directory):
-    """
-    Organize video and landmark data into HDF5 files.
-    Each HDF5 file is named according to the directory it was processed from.
-    """
-    for subdir in os.listdir(main_directory):
-        subdir_path = os.path.join(main_directory, subdir)
-        if os.path.isdir(subdir_path):
-            video_path = os.path.join(subdir_path, 'vid.avi')  # Adjust video file name as needed
-            landmark_path = os.path.join(subdir_path, 'ground_truth.txt')  # Adjust gt file name as needed
-            # Strip 'subject' part from subdir name and convert to integer
-            subject_number = int(subdir.lstrip('subject'))
-            h5_directory = '/data-fast/james/triage/datasets/UBFC-rPPG-cphys-preprocessed'
-            h5_path = os.path.join(h5_directory, f"{subject_number}.h5")
-            # h5_path = os.path.join(main_directory, f"{subject_number}.h5")
-            openface_h5(video_path, landmark_path, h5_path)
 
-def main():
-    main_directory = '/data-fast/james/triage/datasets/UBFC-rPPG'
-    organize_data(main_directory)
+def main(landmark_dir, video_base_dir, output_dir, store_size=128):
+    """
+    Processes all video and landmark pairs in given directories and stores the results.
+    Parameters:
+        landmark_dir (str): Directory containing landmark files.
+        video_base_dir (str): Directory containing subject directories with videos.
+        output_dir (str): Directory to store output .h5 files.
+        store_size (int, optional): Size to which faces are resized. Default is 128.
+    """
+    # Iterate over each landmark file in the landmark directory
+    for landmark_filename in os.listdir(landmark_dir):
+        if landmark_filename.endswith('.csv'):
+            subject_id = os.path.splitext(landmark_filename)[0]  # e.g., 'subject1'
+            landmark_path = os.path.join(landmark_dir, landmark_filename)
+            video_path = os.path.join(video_base_dir, subject_id, 'vid.avi')
+            h5_filename = f"{subject_id[7:]}.h5"  # Extracts the number from 'subject1' and makes '1.h5'
+            h5_path = os.path.join(output_dir, h5_filename)
+            
+            if os.path.exists(video_path) and os.path.exists(landmark_path):
+                print(f"Processing {subject_id}...")
+                openface_h5(video_path, landmark_path, h5_path, store_size)
+            else:
+                print(f"Missing files for {subject_id}, skipping...")
 
 if __name__ == "__main__":
-    main()
+    landmark_dir = '/data-fast/james/triage/datasets/UBFC-rPPG-openface'
+    video_base_dir = '/data-fast/james/triage/datasets/UBFC-rPPG'
+    output_dir = '/data-fast/james/triage/datasets/UBFC-rPPG-cphyspreprocessed'
+    main(landmark_dir, video_base_dir, output_dir)
