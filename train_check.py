@@ -74,6 +74,10 @@ def my_main(_run, total_epoch, T, S, lr, result_dir, fs, delta_t, K, in_ch):
 
     # define the model and loss
     model = PhysNet(S, in_ch=in_ch).to(device).train()
+    #for finetuning
+    # model.load_state_dict(torch.load('./model_weights.pt', map_location=device)) #if finetuning, check path and use this.
+    # model.train()
+
     loss_func = ContrastLoss(delta_t, K, fs, high_pass=40, low_pass=250)
 
     # define irrelevant power ratio
@@ -115,7 +119,8 @@ def my_main(_run, total_epoch, T, S, lr, result_dir, fs, delta_t, K, in_ch):
                 ex.log_scalar("ipr", ipr.item())
 
                 pbar.update()  # Update the progress bar per iteration
-        
+        print(f'Shape of of train_losses is {len(train_losses)}')
+
         model.eval()
         with torch.no_grad():
             for imgs in val_dataloader:
@@ -124,15 +129,27 @@ def my_main(_run, total_epoch, T, S, lr, result_dir, fs, delta_t, K, in_ch):
                 val_loss, _, _ = loss_func(model_output)
                 val_losses.append(val_loss.item())
 
+            print(f'Shape of val_losses is {len(val_losses)}')
         # torch.save(model.state_dict(), exp_dir + '/epoch%d.pt' % e)
         torch.save(model.state_dict(), os.path.join(exp_dir, f'epoch{e}_model_{timestamp}.pt'))
         print(f'Epoch {e+1}: Train loss - {loss.item():.4f}; Val loss - {val_loss:.4f}')
 
     
+    #smoothing out losses for plotting
+    train_cols = len(train_losses) // 10
+    val_cols = len(val_losses) // 10
+    train_losses_np = np.array(train_losses)
+    val_losses_np = np.array(val_losses)
+    train_losses_smooth = train_losses_np.reshape(10, train_cols)
+    val_losses_smooth = val_losses_np.reshape(10, val_cols)
+    # mean_array = reshaped_array.mean(axis=0)
+    train_losses_smooth = train_losses_smooth.mean(axis=0)
+    val_losses_smooth = val_losses_smooth.mean(axis=0)
+
     # Plotting losses after training
     plt.figure(figsize=(10, 5))
-    plt.plot(train_losses, label='Training Loss')
-    plt.plot(val_losses, label='Validation Loss')
+    plt.plot(train_losses_smooth, label='Training Loss') #train_losses / train_losses_smooth
+    plt.plot(val_losses_smooth, label='Validation Loss')
     plt.title('Training and Validation Losses')
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
