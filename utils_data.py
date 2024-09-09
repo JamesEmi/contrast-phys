@@ -11,7 +11,7 @@ def UBFC_LU_split():
     # the function returns the file paths for the training set and test set.
     # TODO: if you want to train on another dataset, you should define new train-test split function.
     
-    h5_dir = '../datasets/UBFC_h5'
+    h5_dir = '/data-fast/james/triage/datasets/UBFC-rPPG-h5'
     train_list = []
     val_list = []
 
@@ -25,7 +25,31 @@ def UBFC_LU_split():
                 train_list.append(h5_dir+'/%d.h5'%(subject))
 
     return train_list, val_list    
-    
+
+def SQH_split():
+    h5_dir = '/data-fast/james/triage/datasets/blue_orin_data/h5_data/church_processed_sortbyaction_h5'
+    train_list = []
+    val_list = []
+
+    val_subject = [1, 2, 3, 4, 5]
+    train_subject = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+    num_subjects = 16
+
+    for subject in range(1, num_subjects + 1):
+        file_path = f"{h5_dir}/{int(subject):02}.h5"
+        if os.path.isfile(file_path):
+            print(f"File found: {file_path}")
+            if subject in train_subject:
+                train_list.append(file_path)
+            elif subject in val_subject:
+                val_list.append(file_path)
+        else:
+            print(f"File not found: {file_path}")
+
+    return train_list, val_list
+
+
+
 class H5Dataset(Dataset):
 
     def __init__(self, train_list, T):
