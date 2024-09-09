@@ -102,38 +102,72 @@ def my_main(_run, e, train_exp_dir, device, time_interval):
             print(f"Ground truth file missing for subject{subject_num}, skipping...")
             continue
         
-        with open(ground_truth_path, 'r') as file:
-            bvp_data = []
-            for line in file:
-                # Split each line into separate floating-point numbers
-                values = line.strip().split()
-                # Convert each value to float and extend the bvp_data list
-                bvp_data.extend([float(value) for value in values])
-            bvp_data = np.array(bvp_data)
+        # with open(ground_truth_path, 'r') as file:
+        #     bvp_data = []
+        #     for line in file:
+        #         # Split each line into separate floating-point numbers
+        #         values = line.strip().split()
+        #         # Convert each value to float and extend the bvp_data list
+        #         bvp_data.extend([float(value) for value in values])
+        #     bvp_data = np.array(bvp_data)
 
-        with h5py.File(h5_path, 'a') as f:  # Open file in append mode
-            if 'bvp' not in f:
-                f.create_dataset('bvp', data=bvp_data)
+        # with h5py.File(h5_path, 'a') as f:  # Open file in append mode
+        #     if 'bvp' not in f:
+        #         f.create_dataset('bvp', data=bvp_data)
 
-            if 'rppg_list' not in f:
-                imgs = f['imgs']
-                fs = config_train['fs']
-                duration = np.min([imgs.shape[0]]) / fs
-                num_blocks = int(duration // time_interval)
+        #     if 'rppg_list' not in f:
+        #         imgs = f['imgs']
+        #         fs = config_train['fs']
+        #         duration = np.min([imgs.shape[0]]) / fs
+        #         num_blocks = int(duration // time_interval)
 
-                rppg_list = []
+        #         rppg_list = []
 
-                for b in tqdm(range(num_blocks), desc="Processing blocks"):
-                    rppg_clip = dl_model(imgs[b*time_interval*fs:(b+1)*time_interval*fs])
-                    rppg_list.append(rppg_clip)
+        #         for b in tqdm(range(num_blocks), desc="Processing blocks"):
+        #             rppg_clip = dl_model(imgs[b*time_interval*fs:(b+1)*time_interval*fs])
+        #             rppg_list.append(rppg_clip)
 
-                f.create_dataset('rppg_list', data=np.array(rppg_list))
+        #         f.create_dataset('rppg_list', data=np.array(rppg_list))
         
 
         with h5py.File(h5_path, 'r') as f:
             if 'bvp' in f and 'rppg_list' in f:
-                bvp = f['bvp'][:]
-                rppg = f['rppg_list'][:]
+                print(list(f.keys()))
+
+                imgs = f['imgs']
+                bvp = f['bvp']
+                # bvppeak = f['bvp_peak']
+                fs = config_train['fs']
+
+                duration = np.min([imgs.shape[0], bvp.shape[0]]) / fs
+                num_blocks = int(duration // time_interval)
+
+                rppg_list = []
+                bvp_list = []
+                # bvppeak_list = []
+
+                for b in range(num_blocks):
+                    rppg_clip = dl_model(imgs[b*time_interval*fs:(b+1)*time_interval*fs])
+                    rppg_list.append(rppg_clip)
+
+                    bvp_list.append(bvp[b*time_interval*fs:(b+1)*time_interval*fs])
+                    # bvppeak_list.append(bvppeak[b*time_interval*fs:(b+1)*time_interval*fs])
+
+                rppg_list = np.array(rppg_list)
+                bvp_list = np.array(bvp_list)
+                # bvppeak_list = np.array(bvppeak_list)
+                # results = {'rppg_list': rppg_list, 'bvp_list': bvp_list, 'bvppeak_list':bvppeak_list}
+                results = {'rppg_list': rppg_list, 'bvp_list': bvp_list}
+                np.save(pred_exp_dir+'/'+h5_path.split('/')[-1][:-3], results)
+                results_rppg = results['rppg_list']
+                results_bvp = results['bvp_list']
+                print(f'Shape of rppg_list in results is {results_rppg.shape} and that of bvp_list is {results_bvp.shape}')
+
+                # bvp = f['bvp'][:]
+                bvp = results['bvp_list']
+                # rppg = f['rppg_list'][:]
+                rppg = results['rppg_list']
+                # probably need to replace the above with data pulled from results
 
                 # Assuming rppg is a single array of rPPG values; adjust if it's not.
                 # bvp = normalize(bvp)
